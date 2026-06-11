@@ -1,0 +1,83 @@
+# docker-compose.yml
+# -------------------
+# Orchestrates three containers:
+#   db       - MySQL database
+#   backend  - FastAPI API server
+#   frontend - Streamlit dashboard
+#
+# Run everything:
+#   docker-compose up --build
+#
+# Stop everything:
+#   docker-compose down
+#
+# Stop and delete DB data:
+#   docker-compose down -v
+
+version: "3.9"
+
+services:
+
+  # ── MySQL ──────────────────────────────────
+  db:
+    image: mysql:8.0
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: root_pass
+      MYSQL_DATABASE:      retention_db
+      MYSQL_USER:          retention_user
+      MYSQL_PASSWORD:      retention_pass
+    volumes:
+      # Named volume — data persists between docker-compose down/up cycles
+      - mysql_data:/var/lib/mysql
+    ports:
+      - "3306:3306"                 # expose for local DB tools (MySQL Workbench, DBeaver)
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "retention_user", "-pretention_pass"]
+      interval: 10s
+      timeout: 5s
+      retries: 10                   # MySQL takes longer to start than Postgres
+
+  # ── FastAPI backend ────────────────────────
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    restart: always
+    ports:
+      - "8000:8000"
+    environment:
+      # mysql+pymysql tells SQLAlchemy to use PyMySQL as the driver
+      DATABASE_URL:       mysql+pymysql://retention_user:retention_pass@db:3306/retention_db
+      ANTHROPIC_API_KEY:  ${ANTHROPIC_API_KEY}   # loaded from your .env file
+    volumes:
+      # Mount the ml/ directory so the container reads model artifacts
+      # without rebuilding the image every time you retrain
+      - ./ml:/app/ml
+    depends_on:
+      db:
+        condition: service_healthy   # wait for MySQL to be ready before starting
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8000/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  # ── Streamlit frontend ─────────────────────
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+    restart: always
+    ports:
+      - "8501:8501"
+    environment:
+      # "backend" resolves to the backend container via Docker DNS
+      API_URL: http://backend:8000
+    depends_on:
+      backend:
+        condition: service_healthy   # wait for API to be ready before starting
+
+# ── Named volumes ──────────────────────────
+volumes:
+  mysql_data:

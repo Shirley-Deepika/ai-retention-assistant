@@ -1,0 +1,29 @@
+# Dockerfile.backend
+# ------------------
+# Builds the FastAPI container.
+#
+# We use python:3.11-slim (not the full image) — it's 200MB vs 900MB.
+# slim strips out compilers, docs, and test tools we don't need at runtime.
+
+FROM python:3.11-slim
+
+# Set working directory inside the container
+WORKDIR /app
+
+# Copy and install dependencies BEFORE copying source code.
+# Docker caches each layer — if requirements.txt hasn't changed,
+# it skips the pip install step on every rebuild. This saves minutes.
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy the rest of the project
+COPY . .
+
+# Expose the port FastAPI runs on
+EXPOSE 8000
+
+# Start the server.
+# --host 0.0.0.0 makes it reachable from outside the container (required).
+# --workers 2 handles concurrent requests — increase for production.
+# Remove --reload in production (it watches files for changes, wastes CPU).
+CMD ["uvicorn", "backend.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "2"]
