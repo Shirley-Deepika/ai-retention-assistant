@@ -158,8 +158,16 @@ class PredictionSummary(BaseModel):
     risk_tier:         str
     created_at:        datetime
 
-    class Config:
-        from_attributes = True   # allows building from SQLAlchemy ORM objects
+    model_config = {"from_attributes": True}
+
+    @classmethod
+    def from_orm_obj(cls, obj):
+        return cls(
+            prediction_id=obj.id,
+            churn_probability=obj.churn_probability,
+            risk_tier=obj.risk_tier,
+            created_at=obj.created_at,
+        )
 
 
 class CustomerHistory(BaseModel):
@@ -173,5 +181,14 @@ class CustomerHistory(BaseModel):
     monthly_charges: float
     predictions:     List[PredictionSummary]
 
-    class Config:
-        from_attributes = True
+    model_config = {"from_attributes": True}
+
+    @classmethod
+    def from_orm_obj(cls, obj):
+        return cls(
+            customer_id=obj.id,
+            tenure=obj.tenure,
+            contract=obj.contract,
+            monthly_charges=obj.monthly_charges,
+            predictions=[PredictionSummary.from_orm_obj(p) for p in obj.predictions],
+        )

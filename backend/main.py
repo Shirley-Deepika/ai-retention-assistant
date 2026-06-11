@@ -283,7 +283,7 @@ def get_customers(
         .limit(limit)
         .all()
     )
-    return customers
+    return [CustomerHistory.from_orm_obj(c) for c in customers]
 
 
 # ─────────────────────────────────────────────
@@ -304,4 +304,4 @@ def get_customer(customer_id: int, db: Session = Depends(get_db)):
             detail=f"Customer {customer_id} not found"
         )
 
-    return customer
+    return CustomerHistory.from_orm_obj(customer)

@@ -89,38 +89,57 @@ def shap_bar_chart(shap_features: list[dict]):
     Red bars = features pushing toward churn.
     Green bars = features pushing away from churn.
     """
-    features = [f["feature"].replace("_", " ") for f in shap_features]
+    # Clean up feature names for display
+    def clean_name(name):
+        name = name.replace("_", " ")
+        replacements = {
+            "PaymentMethod Electronic check": "Electronic Check",
+            "PaymentMethod Credit card automatic": "Credit Card",
+            "PaymentMethod Bank transfer automatic": "Bank Transfer",
+            "PaymentMethod Mailed check": "Mailed Check",
+            "InternetService Fiber optic": "Fiber Optic Internet",
+            "InternetService DSL": "DSL Internet",
+            "Contract One year": "1-Year Contract",
+            "Contract Two year": "2-Year Contract",
+            "MonthlyCharges": "Monthly Charges",
+            "TotalCharges": "Total Charges",
+        }
+        return replacements.get(name, name)
+
+    features = [clean_name(f["feature"]) for f in shap_features]
     values   = [f["shap_value"] for f in shap_features]
     colours  = ["#e74c3c" if v > 0 else "#2ecc71" for v in values]
 
-    fig, ax = plt.subplots(figsize=(5, 2.5))
+    fig, ax = plt.subplots(figsize=(6, 3))
     fig.patch.set_facecolor("#0e1117")
     ax.set_facecolor("#0e1117")
 
-    bars = ax.barh(features, values, color=colours, height=0.5)
+    bars = ax.barh(features, values, color=colours, height=0.4)
     ax.axvline(0, color="#555", linewidth=0.8)
     ax.set_xlabel("SHAP value", color="#aaa", fontsize=9)
-    ax.tick_params(colors="#ccc", labelsize=9)
+    ax.tick_params(colors="#ccc", labelsize=10)
     ax.spines[:].set_visible(False)
 
-    # Value labels on each bar
+    # Value labels outside the bars
     for bar, val in zip(bars, values):
+        offset = 0.03 if val >= 0 else -0.03
         ax.text(
-            val + (0.005 if val >= 0 else -0.005),
+            val + offset,
             bar.get_y() + bar.get_height() / 2,
             f"{val:+.3f}",
             va="center",
             ha="left" if val >= 0 else "right",
-            color="#ccc",
-            fontsize=8,
+            color="white",
+            fontsize=9,
+            fontweight="bold"
         )
 
     red_patch   = mpatches.Patch(color="#e74c3c", label="Increases churn risk")
     green_patch = mpatches.Patch(color="#2ecc71", label="Reduces churn risk")
-    ax.legend(handles=[red_patch, green_patch], fontsize=7,
+    ax.legend(handles=[red_patch, green_patch], fontsize=8,
               facecolor="#1a1a1a", labelcolor="#ccc", loc="lower right")
 
-    plt.tight_layout()
+    plt.tight_layout(pad=1.5)
     return fig
 
 
